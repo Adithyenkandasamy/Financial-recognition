@@ -1,0 +1,109 @@
+body {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    background: #f0f2f5;
+    margin: 0;
+    padding: 0;
+    color: #333;
+}
+
+.container {
+    max-width: 900px;
+    margin: 40px auto;
+    background: #fff;
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+}
+
+h1, h2 {
+    text-align: center;
+    color: #222;
+    margin-bottom: 25px;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 30px;
+}
+
+textarea {
+    height: 160px;
+    padding: 14px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    resize: vertical;
+    font-family: inherit;
+    background: #fdfdfd;
+}
+
+input[type="file"] {
+    padding: 10px 8px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background: #fdfdfd;
+}
+
+button {
+    padding: 12px;
+    background: #2b67f6;
+    color: white;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.2s ease;
+}
+
+button:hover {
+    background: #174edc;
+}
+
+.results {
+    margin-top: 30px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-size: 0.98rem;
+}
+
+th, td {
+    text-align: left;
+    padding: 14px 16px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+th {
+    background-color: #f6f8fa;
+    font-weight: 600;
+    color: #333;
+}
+
+td {
+    background-color: #fff;
+}
+
+td:contains('❌') {
+    color: #d9534f;
+    font-weight: 600;
+}
+
+@media (max-width: 600px) {
+    .container {
+        padding: 20px;
+    }
+
+    textarea {
+        height: 120px;
+    }
+
+    table, th, td {
+        font-size: 0.9rem;
+    }
+}
