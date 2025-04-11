@@ -19,12 +19,12 @@ matcher = PhraseMatcher(nlp.vocab, attr="LOWER")
 FINANCIAL_TERMS = [
     "revenue", "net income", "EBITDA", "EPS", "assets", "liabilities",
     "dividend", "profit", "cost", "cash flow", "expenses", "total assets",
-    "total liabilities"
+    "total liabilities", "loss"
 ]
 matcher.add("FIN_TERMS", [nlp.make_doc(term) for term in FINANCIAL_TERMS])
-money_regex = re.compile(r"(₹|\$|€|Rs\.?)\s?[0-9,]+(?:\.\d+)?(?:\s?(crore|million|billion|lakhs)?)", re.IGNORECASE)
+money_regex = re.compile(r"(₹|rs\.?|INR|\$|€)\s?[0-9,.]+(?:\s?(crore|million|billion|lakhs)?)", re.IGNORECASE)
 
-# ----------- UTILS ------------
+# ----------------- UTILS -----------------
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -51,7 +51,7 @@ def extract_text_from_docx(docx_path):
     doc = docx.Document(docx_path)
     return "\n".join([para.text for para in doc.paragraphs])
 
-# ----------- NLP ------------
+# ----------------- NLP -----------------
 
 def extract_company_name(doc):
     for ent in doc.ents:
@@ -63,9 +63,9 @@ def extract_money_expressions(text):
     return [(m.start(), m.end(), m.group()) for m in money_regex.finditer(text)]
 
 def extract_financial_entities(text):
-    doc = nlp(text)
+    doc = nlp(text[:1000000])
     matches = matcher(doc)
-    financial_data = defaultdict(list)
+    financial_data = defaultdict(str)
     company_name = extract_company_name(doc)
     money_matches = extract_money_expressions(text)
 
@@ -81,15 +81,26 @@ def extract_financial_entities(text):
                 closest = value
                 closest_distance = distance
 
-        if closest:
-            financial_data[term].append(closest)
+        if closest and term not in financial_data:
+            financial_data[term] = closest
+
+    # Add defaults for not found
+    final_data = {}
+    for term in FINANCIAL_TERMS:
+        if term in financial_data:
+            final_data[term] = financial_data[term]
+        else:
+            if re.search(rf"{term}.*(not found|not available|not disclosed)", text, re.IGNORECASE):
+                final_data[term] = "❌ Not Available"
+            else:
+                final_data[term] = "❌ Not Found"
 
     return {
         "company_name": company_name,
-        "financial_details": dict(financial_data)
+        "financial_details": final_data
     }
 
-# ----------- FLASK ROUTE ------------
+# ----------------- ROUTES -----------------
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -111,7 +122,7 @@ def index():
 
         if text:
             result = extract_financial_entities(text)
-    return render_template("index.html", result=result)
+    return render_template("index.html", result=result, terms=FINANCIAL_TERMS)
 
 if __name__ == "__main__":
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
