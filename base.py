@@ -1,37 +1,37 @@
+import os
 import re
 import spacy
 from spacy.matcher import PhraseMatcher
 from collections import defaultdict
+import pandas as pd
 
-# Load spaCy model
+# Load spaCy model and increase max length limit
 nlp = spacy.load("en_core_web_sm")
+nlp.max_length = 600000000  # Adjust this based on your largest file size
 
-# Define financial terms to match
-FINANCIAL_TERMS = [
-    "revenue", "net income", "gross profit", "operating income", "EBITDA",
-    "earnings per share", "EPS", "assets", "liabilities", "debt",
-    "cash flow", "free cash flow", "interest", "dividend", "expenses",
-    "cost of goods sold", "COGS", "equity", "operating expenses",
-    "shareholder", "balance sheet", "income statement", "tax", "R&D",
-    "capital expenditure", "profit margin", "return on equity", "ROE",
-    "current ratio", "total assets", "total liabilities", "depreciation"
-]
-
-# Regex pattern for ₹, $, € + number + optional "crore"/"million"/"billion"
-money_regex = re.compile(r"(₹|\$|€|Rs\.?)\s?[0-9,]+(?:\.\d+)?(?:\s?(crore|million|billion|lakhs)?)", re.IGNORECASE)
-
-# spaCy PhraseMatcher setup
+# Financial terms and matcher
 matcher = PhraseMatcher(nlp.vocab, attr="LOWER")
+FINANCIAL_TERMS = [
+    "revenue", "net income", "EBITDA", "EPS", "assets", "liabilities",
+    "dividend", "profit", "cost", "cash flow", "expenses", "total assets",
+    "total liabilities"
+]
 matcher.add("FIN_TERMS", [nlp.make_doc(term) for term in FINANCIAL_TERMS])
+
+# Money pattern (₹, $, €, Rs., crore, etc.)
+money_regex = re.compile(
+    r"(₹|\$|€|Rs\.?)\s?[0-9,]+(?:\.\d+)?(?:\s?(crore|million|billion|lakhs)?)",
+    re.IGNORECASE
+)
+
+def extract_money_expressions(text):
+    return [(m.start(), m.end(), m.group()) for m in money_regex.finditer(text)]
 
 def extract_company_name(doc):
     for ent in doc.ents:
         if ent.label_ == "ORG":
             return ent.text
     return "Unknown Company"
-
-def extract_money_expressions(text):
-    return [(m.start(), m.end(), m.group()) for m in money_regex.finditer(text)]
 
 def extract_financial_entities(text):
     doc = nlp(text)
@@ -44,7 +44,6 @@ def extract_financial_entities(text):
         term = doc[start:end].text.lower()
         token_start_char = doc[start].idx
 
-        # Find closest money match by character index
         closest = None
         closest_distance = float("inf")
         for m_start, m_end, value in money_matches:
@@ -61,17 +60,30 @@ def extract_financial_entities(text):
         "financial_details": dict(financial_data)
     }
 
-# 🧪 Sample usage
+def analyze_folder(folder_path):
+    results = []
+    for filename in os.listdir(folder_path):
+        if filename.endswith(".txt"):
+            file_path = os.path.join(folder_path, filename)
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                text = f.read()
+                if len(text) > nlp.max_length:
+                    print(f"⚠️ Skipping '{filename}' due to excessive length ({len(text)} characters).")
+                    continue
+                data = extract_financial_entities(text)
+                result_row = {"filename": filename, "company_name": data["company_name"]}
+                for term in FINANCIAL_TERMS:
+                    result_row[term] = ", ".join(data["financial_details"].get(term.lower(), []))
+                results.append(result_row)
+    return results
+
+def main():
+    folder = "2025q1"
+    output_file = "financial_extracted_results.csv"
+    result_data = analyze_folder(folder)
+    df = pd.DataFrame(result_data)
+    df.to_csv(output_file, index=False)
+    print(f"✅ Extraction completed. Results saved to '{output_file}'")
+
 if __name__ == "__main__":
-    text = """
-    ABC Tech Solutions Ltd. reported $9,845 crore in revenue for FY 2023, with a net income of $1,941 crore.
-    The EBITDA stood at $3,396 crore, while the EPS reached $48.53. Total assets were $19,820 crore,
-    and total liabilities amounted to $11,235 crore. The company also announced a dividend of $20.75 per share.
-    """
-
-    result = extract_financial_entities(text)
-
-    print("\n🏢 Company Name:", result["company_name"])
-    print("📊 Financial Highlights:")
-    for key, values in result["financial_details"].items():
-        print(f" - {key.title()}: {', '.join(values)}")
+    main()
