@@ -5,7 +5,7 @@ import spacy
 from spacy.matcher import PhraseMatcher
 import re
 from collections import defaultdict
-import fitz  # PyMuPDF
+import fitz  
 import docx
 
 UPLOAD_FOLDER = 'uploads'
