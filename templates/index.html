@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Financial Data Extractor</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        textarea { width: 100%; height: 150px; }
+        .result { margin-top: 20px; background: #f9f9f9; padding: 15px; border-radius: 8px; }
+        .highlight { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h2>📄 Paste Financial Document Text</h2>
+    <form method="POST">
+        <textarea name="financial_text" placeholder="Paste your financial document text here..."></textarea><br><br>
+        <button type="submit">Extract Info</button>
+    </form>
+
+    {% if result %}
+    <div class="result">
+        <p>🏢 <span class="highlight">Company Name:</span> {{ result.company_name }}</p>
+        <p>📊 <span class="highlight">Financial Highlights:</span></p>
+        <ul>
+            {% for key, values in result.financial_details.items() %}
+                <li><span class="highlight">{{ key.title() }}:</span> {{ ', '.join(values) }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</body>
+</html>

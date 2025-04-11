@@ -1,12 +1,12 @@
-import re
+from flask import Flask, render_template, request
 import spacy
 from spacy.matcher import PhraseMatcher
+import re
 from collections import defaultdict
 
-# Load spaCy model
+app = Flask(__name__)
 nlp = spacy.load("en_core_web_sm")
 
-# Define financial terms to match
 FINANCIAL_TERMS = [
     "revenue", "net income", "gross profit", "operating income", "EBITDA",
     "earnings per share", "EPS", "assets", "liabilities", "debt",
@@ -17,12 +17,10 @@ FINANCIAL_TERMS = [
     "current ratio", "total assets", "total liabilities", "depreciation"
 ]
 
-# Regex pattern for ₹, $, € + number + optional "crore"/"million"/"billion"
-money_regex = re.compile(r"(₹|\$|€|Rs\.?)\s?[0-9,]+(?:\.\d+)?(?:\s?(crore|million|billion|lakhs)?)", re.IGNORECASE)
-
-# spaCy PhraseMatcher setup
 matcher = PhraseMatcher(nlp.vocab, attr="LOWER")
 matcher.add("FIN_TERMS", [nlp.make_doc(term) for term in FINANCIAL_TERMS])
+
+money_regex = re.compile(r"(₹|\$|€|Rs\.?)\s?[0-9,]+(?:\.\d+)?(?:\s?(crore|million|billion|lakhs)?)", re.IGNORECASE)
 
 def extract_company_name(doc):
     for ent in doc.ents:
@@ -44,7 +42,6 @@ def extract_financial_entities(text):
         term = doc[start:end].text.lower()
         token_start_char = doc[start].idx
 
-        # Find closest money match by character index
         closest = None
         closest_distance = float("inf")
         for m_start, m_end, value in money_matches:
@@ -61,17 +58,13 @@ def extract_financial_entities(text):
         "financial_details": dict(financial_data)
     }
 
-# 🧪 Sample usage
+@app.route("/", methods=["GET", "POST"])
+def index():
+    result = None
+    if request.method == "POST":
+        text = request.form["financial_text"]
+        result = extract_financial_entities(text)
+    return render_template("index.html", result=result)
+
 if __name__ == "__main__":
-    text = """
-    ABC Tech Solutions Ltd. reported $9,845 crore in revenue for FY 2023, with a net income of $1,941 crore.
-    The EBITDA stood at $3,396 crore, while the EPS reached $48.53. Total assets were $19,820 crore,
-    and total liabilities amounted to $11,235 crore. The company also announced a dividend of $20.75 per share.
-    """
-
-    result = extract_financial_entities(text)
-
-    print("\n🏢 Company Name:", result["company_name"])
-    print("📊 Financial Highlights:")
-    for key, values in result["financial_details"].items():
-        print(f" - {key.title()}: {', '.join(values)}")
+    app.run(debug=True)
