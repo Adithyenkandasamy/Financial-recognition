@@ -21,6 +21,12 @@ nlp = spacy.load("/home/jinwoo/Desktop/Financial-recognition/output/model-best")
 if "sentencizer" not in nlp.pipe_names:
     nlp.add_pipe("sentencizer")
 
+# Load default spaCy model for fallback
+try:
+    nlp_default = spacy.load("en_core_web_sm")
+except Exception:
+    nlp_default = None
+
 # Financial terms
 FINANCIAL_TERMS = sorted([
     "total assets", "total liabilities", "net income", "cash flow", "EBITDA", "EPS",
@@ -80,6 +86,12 @@ def extract_company_name(doc):
     for ent in doc.ents:
         if ent.label_ == "COMPANY":
             return ent.text
+    # Fallback to default model
+    if nlp_default:
+        doc_default = nlp_default(doc.text)
+        for ent in doc_default.ents:
+            if ent.label_ == "ORG":
+                return ent.text
     return "Unknown Company"
 
 def extract_financial_entities(text):
@@ -140,6 +152,15 @@ def extract_financial_entities(text):
                 value = money_regex.search(match.group())
                 if value:
                     financial_data[term] = value.group()
+
+    # Fallback: Use default NER for money if still not found
+    if nlp_default:
+        doc_default = nlp_default(text)
+        for ent in doc_default.ents:
+            if ent.label_ == "MONEY":
+                for term in FINANCIAL_TERMS:
+                    if financial_data[term] == "":
+                        financial_data[term] = ent.text
 
     final_data = {}
     for term in FINANCIAL_TERMS:
