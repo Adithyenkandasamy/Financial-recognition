@@ -78,7 +78,7 @@ def extract_text_from_excel(excel_path):
 # --- NLP Logic ---
 def extract_company_name(doc):
     for ent in doc.ents:
-        if ent.label_ == "ORG":
+        if ent.label_ == "COMPANY":
             return ent.text
     return "Unknown Company"
 
@@ -88,7 +88,27 @@ def extract_financial_entities(text):
     financial_data = defaultdict(str)
     company_name = extract_company_name(doc)
 
-    # Group monetary values by sentence
+    # Extract FIN_TERM and MONEY entities from NER
+    ner_terms = {}
+    ner_money = {}
+    for ent in doc.ents:
+        if ent.label_ == "FIN_TERM":
+            ner_terms[ent.text.lower()] = ent.start_char
+        elif ent.label_ == "MONEY":
+            ner_money[ent.start_char] = ent.text
+
+    # Attempt to pair FIN_TERM and MONEY entities by proximity
+    for term, t_pos in ner_terms.items():
+        closest_money = None
+        min_dist = float('inf')
+        for m_pos, m_text in ner_money.items():
+            if m_pos > t_pos and m_pos - t_pos < min_dist:
+                closest_money = m_text
+                min_dist = m_pos - t_pos
+        if closest_money:
+            financial_data[term] = closest_money
+
+    # Existing logic: Group monetary values by sentence
     money_by_sent = {}
     for sent in doc.sents:
         money_matches = list(money_regex.finditer(sent.text))
@@ -100,7 +120,7 @@ def extract_financial_entities(text):
         sent = doc[start].sent
         sent_start = sent.start
         money_matches = money_by_sent.get(sent_start, [])
-        if money_matches:
+        if money_matches and not financial_data[term]:
             financial_data[term] = money_matches[0][0]
 
     # Fallback regex patterns
