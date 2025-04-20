@@ -8,6 +8,7 @@ import docx
 import re
 import pandas as pd
 from collections import defaultdict
+from forex_python.converter import CurrencyCodes
 
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'docx', 'xls', 'xlsx'}
@@ -17,6 +18,8 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Load spaCy model
 nlp = spacy.load("/home/jinwoo/Desktop/Financial-recognition/output/model-best")
+if "sentencizer" not in nlp.pipe_names:
+    nlp.add_pipe("sentencizer")
 
 # Financial terms
 FINANCIAL_TERMS = sorted([
@@ -29,7 +32,7 @@ matcher.add("FIN_TERMS", [nlp.make_doc(term) for term in FINANCIAL_TERMS])
 
 # Money regex
 money_regex = re.compile(
-    r"(₹|rs\.?|INR|\$|€)\s?[\d,.]+(?:\s?(crore|million|billion|lakhs))?(?:\s?(per share))?\.?",
+    r"([₹$€£¥₣₹]|(?:INR|USD|EUR|GBP|CAD|AUD|JPY|CNY|CHF|RUB|ZAR|SAR))\s?[\d,.]+(?:\s?(crore|million|billion|lakhs))?(?:\s?(per share))?\.?",
     re.IGNORECASE
 )
 
