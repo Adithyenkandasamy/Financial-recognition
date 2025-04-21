@@ -20,11 +20,19 @@
     </form>
     <table class="table table-bordered">
         <thead>
-            <tr><th>Label</th><th>Value</th></tr>
+            <tr>
+                {% for label in labels if label in selected_labels %}
+                    <th>{{ label }}</th>
+                {% endfor %}
+            </tr>
         </thead>
         <tbody>
-        {% for ent in entities %}
-            <tr><td>{{ ent.label }}</td><td>{{ ent.text }}</td></tr>
+        {% for group in groups %}
+            <tr>
+                {% for label in labels if label in selected_labels %}
+                    <td>{{ group.get(label, '') }}</td>
+                {% endfor %}
+            </tr>
         {% endfor %}
         </tbody>
     </table>

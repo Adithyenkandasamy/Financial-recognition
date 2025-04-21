@@ -14,6 +14,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Load the latest trained spaCy model
 nlp = spacy.load('../custom_financial_ner')
+if 'sentencizer' not in nlp.pipe_names:
+    nlp.add_pipe('sentencizer')
 
 
 def allowed_file(filename):
@@ -36,17 +38,42 @@ def extract_text_from_csv(filepath):
     df_file = pd.read_csv(filepath)
     return df_file.to_csv(index=False)
 
-def extract_financial_entities(text):
+def extract_financial_entities_grouped(text):
     doc = nlp(text)
+    # Group entities by sentence, and within each sentence by company
     results = []
-    for ent in doc.ents:
-        results.append({'text': ent.text, 'label': ent.label_})
-    return results
+    for sent in doc.sents:
+        sent_ents = [ent for ent in sent.ents]
+        companies = [ent for ent in sent_ents if ent.label_ == 'COMPANY']
+        # If no company, treat as 'Unknown'
+        if not companies:
+            group = {'COMPANY': 'Unknown'}
+            for ent in sent_ents:
+                group[ent.label_] = ent.text.strip()
+            results.append(group)
+        else:
+            for company in companies:
+                group = {'COMPANY': company.text.strip()}
+                for ent in sent_ents:
+                    if ent is company:
+                        continue
+                    if ent.label_ != 'COMPANY':
+                        group[ent.label_] = ent.text.strip()
+                results.append(group)
+    # Remove duplicates
+    unique_results = []
+    seen = set()
+    for group in results:
+        key = tuple(sorted(group.items()))
+        if key not in seen:
+            unique_results.append(group)
+            seen.add(key)
+    return unique_results
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     selected_labels = []
-    entities = []
+    groups = []
     raw_text = ''
     labels = []
     if request.method == 'POST':
@@ -72,16 +99,23 @@ def index():
             extracted_text = input_text
         else:
             return render_template('index.html', error='Please upload a file or paste text.')
-        entities = extract_financial_entities(extracted_text)
-        labels = sorted(set(ent['label'] for ent in entities))
+        groups = extract_financial_entities_grouped(extracted_text)
+        # Collect all labels for checkboxes
+        all_labels = set()
+        for group in groups:
+            all_labels.update(group.keys())
+        labels = sorted(all_labels)
         raw_text = extracted_text
         # Handle label selection
         selected_labels = request.form.getlist('selected_labels')
         if not selected_labels:
             selected_labels = labels  # default: show all
-        # Filter entities
-        entities = [ent for ent in entities if ent['label'] in selected_labels]
-        return render_template('result.html', entities=entities, labels=labels, selected_labels=selected_labels, raw_text=raw_text)
+        # Filter group fields
+        filtered_groups = []
+        for group in groups:
+            filtered = {k: v for k, v in group.items() if k in selected_labels}
+            filtered_groups.append(filtered)
+        return render_template('result.html', groups=filtered_groups, labels=labels, selected_labels=selected_labels, raw_text=raw_text)
     return render_template('index.html')
 
 if __name__ == '__main__':

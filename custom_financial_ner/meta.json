@@ -18,28 +18,9 @@
   },
   "labels":{
     "ner":[
-      "CASH_FLOW_FROM_FINANCIAL_ACTIVITIES",
-      "CASH_FLOW_FROM_INVESTING",
-      "CASH_FLOW_FROM_OPERATING",
-      "CATEGORY",
       "COMPANY",
-      "CURRENT_RATIO",
-      "DEBT/EQUITY_RATIO",
-      "EARNING_PER_SHARE",
-      "EBITDA",
-      "FREE_CASH_FLOW_PER_SHARE",
-      "GROSS_PROFIT",
-      "INFLATION_RATE(IN_US)",
-      "MARKET_CAP(IN_B_USD)",
-      "NET_INCOME",
-      "NET_PROFIT_MARGIN",
-      "NUMBER_OF_EMPLOYEES",
-      "RETURN_ON_TANGIBLE_EQUITY",
       "REVENUE",
-      "ROA",
       "ROE",
-      "ROI",
-      "SHARE_HOLDER_EQUITY",
       "YEAR"
     ]
   },
