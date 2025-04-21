@@ -7,14 +7,14 @@
 </head>
 <body>
 <div class="container mt-5">
-    <h2 class="mb-4">Extraction Results</h2>
+    <h2 class="mb-4">Extracted Information</h2>
     <table class="table table-bordered">
         <thead>
-            <tr><th>Entity</th><th>Label</th></tr>
+            <tr><th>Field</th><th>Value</th></tr>
         </thead>
         <tbody>
-        {% for ent in entities %}
-            <tr><td>{{ ent.text }}</td><td>{{ ent.label }}</td></tr>
+        {% for k, v in result.items() %}
+            <tr><td>{{ k }}</td><td>{{ v }}</td></tr>
         {% endfor %}
         </tbody>
     </table>

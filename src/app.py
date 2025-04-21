@@ -1,8 +1,7 @@
 import os
 from flask import Flask, render_template, request
-import spacy
-import pdfplumber
 import pandas as pd
+import pdfplumber
 from werkzeug.utils import secure_filename
 
 UPLOAD_FOLDER = 'uploads'
@@ -12,16 +11,19 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Try to load custom model, fall back to en_core_web_sm
-try:
-    nlp = spacy.load('custom_financial_ner')
-except Exception:
-    try:
-        nlp = spacy.load('en_core_web_sm')
-    except OSError:
-        from spacy.cli import download
-        download('en_core_web_sm')
-        nlp = spacy.load('en_core_web_sm')
+# Load your own dataset (e.g., Financial Statements.xls)
+DATASET_PATH = '../Financial Statements.xls'  # Adjust if needed
+if DATASET_PATH.endswith('.csv'):
+    df = pd.read_csv(DATASET_PATH, encoding='utf-8-sig')
+else:
+    df = pd.read_excel(DATASET_PATH)
+df.columns = [col.strip() for col in df.columns]
+
+FINANCIAL_FIELDS = [
+    'Company', 'Revenue', 'Net income', 'Ebitda', 'Eps', 'Assets', 'Liabilities',
+    'Dividend', 'Profit', 'Cost', 'Cash flow', 'Expenses', 'Total assets',
+    'Total liabilities', 'Loss'
+]
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -36,19 +38,28 @@ def extract_text_from_pdf(filepath):
     return text
 
 def extract_text_from_xls(filepath):
-    df = pd.read_excel(filepath)
-    return df.to_csv(index=False)
+    df_file = pd.read_excel(filepath)
+    return df_file.to_csv(index=False)
 
 def extract_text_from_csv(filepath):
-    df = pd.read_csv(filepath)
-    return df.to_csv(index=False)
+    df_file = pd.read_csv(filepath)
+    return df_file.to_csv(index=False)
 
-def extract_financial_entities(text):
-    doc = nlp(text)
-    results = []
-    for ent in doc.ents:
-        results.append({'text': ent.text, 'label': ent.label_})
-    return results
+def extract_from_dataset(text):
+    # Try to find a company from the dataset in the text
+    company_found = None
+    for company in df['Company'].dropna().unique():
+        if str(company).lower() in text.lower():
+            company_found = company
+            break
+    result = {field: 'Not Found' for field in FINANCIAL_FIELDS}
+    if company_found:
+        row = df[df['Company'].str.lower() == company_found.lower()].iloc[0]
+        for field in FINANCIAL_FIELDS:
+            if field in row and pd.notnull(row[field]):
+                result[field] = row[field]
+        result['Company'] = company_found
+    return result
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -75,8 +86,8 @@ def index():
             extracted_text = input_text
         else:
             return render_template('index.html', error='Please upload a file or paste text.')
-        entities = extract_financial_entities(extracted_text)
-        return render_template('result.html', entities=entities, raw_text=extracted_text)
+        result = extract_from_dataset(extracted_text)
+        return render_template('result.html', result=result, raw_text=extracted_text)
     return render_template('index.html')
 
 if __name__ == '__main__':
