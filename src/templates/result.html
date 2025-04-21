@@ -8,13 +8,23 @@
 <body>
 <div class="container mt-5">
     <h2 class="mb-4">Extracted Information</h2>
+    <form method="post">
+        <div class="mb-3">
+            <label><strong>Select Fields to Display:</strong></label><br>
+            {% for label in labels %}
+                <input type="checkbox" name="selected_labels" value="{{ label }}" {% if label in selected_labels %}checked{% endif %}> {{ label }}
+            {% endfor %}
+            <button type="submit" class="btn btn-sm btn-primary ms-2">Update</button>
+        </div>
+        <input type="hidden" name="input_text" value="{{ raw_text|e }}">
+    </form>
     <table class="table table-bordered">
         <thead>
-            <tr><th>Field</th><th>Value</th></tr>
+            <tr><th>Label</th><th>Value</th></tr>
         </thead>
         <tbody>
-        {% for k, v in result.items() %}
-            <tr><td>{{ k }}</td><td>{{ v }}</td></tr>
+        {% for ent in entities %}
+            <tr><td>{{ ent.label }}</td><td>{{ ent.text }}</td></tr>
         {% endfor %}
         </tbody>
     </table>

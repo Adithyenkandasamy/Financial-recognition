@@ -3,66 +3,44 @@ import re
 import random
 
 # Path to your dataset
-DATASET_PATH = 'Financial Statements.xls'  # Change if needed
+DATASET_PATH = 'Financial Statements.csv'  # Change if needed
 if DATASET_PATH.endswith('.csv'):
     df = pd.read_csv(DATASET_PATH, encoding='utf-8-sig')
+elif DATASET_PATH.endswith('.xlsx'):
+    df = pd.read_excel(DATASET_PATH, engine='openpyxl')
+elif DATASET_PATH.endswith('.xls'):
+    df = pd.read_excel(DATASET_PATH, engine='xlrd')
 else:
-    df = pd.read_excel(DATASET_PATH)
+    raise ValueError('Unsupported file format for dataset!')
 df.columns = [col.strip() for col in df.columns]
 
-# Map dataset columns to entity labels
-ENTITY_LABELS = {
-    'Company': 'COMPANY',
-    'Revenue': 'REVENUE',
-    'Net income': 'NET_INCOME',
-    'Ebitda': 'EBITDA',
-    'Eps': 'EPS',
-    'Assets': 'ASSETS',
-    'Liabilities': 'LIABILITIES',
-    'Dividend': 'DIVIDEND',
-    'Profit': 'PROFIT',
-    'Cost': 'COST',
-    'Cash flow': 'CASH_FLOW',
-    'Expenses': 'EXPENSES',
-    'Total assets': 'TOTAL_ASSETS',
-    'Total liabilities': 'TOTAL_LIABILITIES',
-    'Loss': 'LOSS',
-}
+# Use all columns as entity labels (except maybe 'Year' or similar, user can edit if needed)
+ENTITY_LABELS = {col: col.upper().replace(' ', '_') for col in df.columns}
 
 TEMPLATES = [
-    "{Company} reported a revenue of {Revenue} and a net income of {Net income}.",
-    "{Company} has assets worth {Assets} and liabilities of {Liabilities}.",
-    "The profit of {Company} was {Profit} with expenses of {Expenses}.",
-    "{Company} declared a dividend of {Dividend} per share.",
-    "{Company} reported total assets of {Total assets} and total liabilities of {Total liabilities} in the last fiscal year.",
-    "{Company} had an EBITDA of {Ebitda} and EPS of {Eps}.",
-    "{Company} had a cash flow of {Cash flow} and a loss of {Loss}.",
+    # Dynamically generate templates for each row
 ]
 
-TRAIN_DATA = []
-
+# Generate a simple sentence per row using all columns
 for idx, row in df.iterrows():
-    for template in TEMPLATES:
-        # Only generate if all required fields in template are present
-        skip = False
-        for field in re.findall(r"{(.*?)}", template):
-            if field not in row or pd.isnull(row[field]):
-                skip = True
-                break
-        if skip:
-            continue
-        text = template.format(**row)
-        entities = []
-        for field, label in ENTITY_LABELS.items():
-            value = str(row[field]) if field in row and pd.notnull(row[field]) else None
-            if value and value in text:
-                start = text.index(value)
-                end = start + len(value)
-                entities.append((start, end, label))
-        if entities:
-            TRAIN_DATA.append((text, {"entities": entities}))
+    parts = []
+    for col in df.columns:
+        if pd.notnull(row[col]):
+            parts.append(f"{col}: {row[col]}")
+    text = "; ".join(parts)
+    entities = []
+    start = 0
+    for col in df.columns:
+        value = str(row[col]) if pd.notnull(row[col]) else None
+        if value and value in text:
+            idx_start = text.index(value, start)
+            idx_end = idx_start + len(value)
+            entities.append((idx_start, idx_end, ENTITY_LABELS[col]))
+            start = idx_end  # move start forward to avoid duplicate matches
+    if entities:
+        TEMPLATES.append((text, {"entities": entities}))
 
-# Shuffle for training randomness
+TRAIN_DATA = TEMPLATES
 random.shuffle(TRAIN_DATA)
 
 # Save as .py file for spaCy training
@@ -70,3 +48,4 @@ with open('spacy_train_data.py', 'w', encoding='utf-8') as f:
     f.write('TRAIN_DATA = ' + repr(TRAIN_DATA))
 
 print(f"Generated {len(TRAIN_DATA)} training examples for spaCy NER.")
+print(f"Entity labels: {list(ENTITY_LABELS.values())}")

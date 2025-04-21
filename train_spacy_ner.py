@@ -2,10 +2,16 @@ import spacy
 from spacy.training.example import Example
 from spacy.util import minibatch, compounding
 import random
+import shutil
 from spacy_train_data import TRAIN_DATA
 
 # Set your model output directory
 OUTPUT_DIR = "custom_financial_ner"
+
+# Delete old model if exists
+import os
+if os.path.exists(OUTPUT_DIR):
+    shutil.rmtree(OUTPUT_DIR)
 
 # Create blank English model
 nlp = spacy.blank("en")

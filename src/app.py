@@ -1,7 +1,8 @@
 import os
 from flask import Flask, render_template, request
-import pandas as pd
+import spacy
 import pdfplumber
+import pandas as pd
 from werkzeug.utils import secure_filename
 
 UPLOAD_FOLDER = 'uploads'
@@ -11,19 +12,9 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Load your own dataset (e.g., Financial Statements.xls)
-DATASET_PATH = '../Financial Statements.xls'  # Adjust if needed
-if DATASET_PATH.endswith('.csv'):
-    df = pd.read_csv(DATASET_PATH, encoding='utf-8-sig')
-else:
-    df = pd.read_excel(DATASET_PATH)
-df.columns = [col.strip() for col in df.columns]
+# Load the latest trained spaCy model
+nlp = spacy.load('../custom_financial_ner')
 
-FINANCIAL_FIELDS = [
-    'Company', 'Revenue', 'Net income', 'Ebitda', 'Eps', 'Assets', 'Liabilities',
-    'Dividend', 'Profit', 'Cost', 'Cash flow', 'Expenses', 'Total assets',
-    'Total liabilities', 'Loss'
-]
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -45,24 +36,19 @@ def extract_text_from_csv(filepath):
     df_file = pd.read_csv(filepath)
     return df_file.to_csv(index=False)
 
-def extract_from_dataset(text):
-    # Try to find a company from the dataset in the text
-    company_found = None
-    for company in df['Company'].dropna().unique():
-        if str(company).lower() in text.lower():
-            company_found = company
-            break
-    result = {field: 'Not Found' for field in FINANCIAL_FIELDS}
-    if company_found:
-        row = df[df['Company'].str.lower() == company_found.lower()].iloc[0]
-        for field in FINANCIAL_FIELDS:
-            if field in row and pd.notnull(row[field]):
-                result[field] = row[field]
-        result['Company'] = company_found
-    return result
+def extract_financial_entities(text):
+    doc = nlp(text)
+    results = []
+    for ent in doc.ents:
+        results.append({'text': ent.text, 'label': ent.label_})
+    return results
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
+    selected_labels = []
+    entities = []
+    raw_text = ''
+    labels = []
     if request.method == 'POST':
         input_text = request.form.get('input_text', '').strip()
         file = request.files.get('file')
@@ -86,8 +72,16 @@ def index():
             extracted_text = input_text
         else:
             return render_template('index.html', error='Please upload a file or paste text.')
-        result = extract_from_dataset(extracted_text)
-        return render_template('result.html', result=result, raw_text=extracted_text)
+        entities = extract_financial_entities(extracted_text)
+        labels = sorted(set(ent['label'] for ent in entities))
+        raw_text = extracted_text
+        # Handle label selection
+        selected_labels = request.form.getlist('selected_labels')
+        if not selected_labels:
+            selected_labels = labels  # default: show all
+        # Filter entities
+        entities = [ent for ent in entities if ent['label'] in selected_labels]
+        return render_template('result.html', entities=entities, labels=labels, selected_labels=selected_labels, raw_text=raw_text)
     return render_template('index.html')
 
 if __name__ == '__main__':
